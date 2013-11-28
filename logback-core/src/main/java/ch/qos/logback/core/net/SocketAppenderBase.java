@@ -59,6 +59,7 @@ public abstract class SocketAppenderBase<E> extends AppenderBase<E> {
   private Connector connector;
   private boolean initialized = false;
   private boolean lazyInit = false;
+  private IOException lastIOException;
   protected int counter = 0;
 
   /**
@@ -127,6 +128,10 @@ public abstract class SocketAppenderBase<E> extends AppenderBase<E> {
     }
   }
 
+  public boolean isNotConnected() {
+      return connector != null;
+  }
+
   void connect(InetAddress address, int port) {
     if (this.address == null)
       return;
@@ -177,7 +182,9 @@ public abstract class SocketAppenderBase<E> extends AppenderBase<E> {
           // System.err.println("Doing oos.reset()");
           oos.reset();
         }
+        lastIOException = null;
       } catch (IOException e) {
+        lastIOException = e;
         if (oos != null) {
           try {
             oos.close();
@@ -192,6 +199,10 @@ public abstract class SocketAppenderBase<E> extends AppenderBase<E> {
         }
       }
     }
+  }
+
+  public boolean wasAppendSuccessful() {
+    return lastIOException == null;
   }
 
   protected abstract void postProcessEvent(E event);
