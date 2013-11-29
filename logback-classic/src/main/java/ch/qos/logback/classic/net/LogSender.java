@@ -1,7 +1,6 @@
 package ch.qos.logback.classic.net;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.Appender;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -18,17 +17,14 @@ import java.util.TimerTask;
 // TODO add dependencies to remove boilerplate (IOUtils, Lists, Optionals)
 public class LogSender extends TimerTask {
 
-    private final Appender<ILoggingEvent> parent;
-    private final SocketAppender socketAppender;
+    private final BufferingSocketAppender socketAppender;
     private final int batchSize;
     private final String logFolderPath;
 
     public LogSender(
-            final Appender<ILoggingEvent> parent,
-            final SocketAppender socketAppender,
+            final BufferingSocketAppender socketAppender,
             final int batchSize,
             final String logFolderPath) {
-        this.parent = parent;
         this.socketAppender = socketAppender;
         this.batchSize = batchSize;
         this.logFolderPath = logFolderPath;
@@ -51,7 +47,7 @@ public class LogSender extends TimerTask {
                 continue;
             }
 
-            socketAppender.doAppend(loggingEvent);
+            socketAppender.superAppend(loggingEvent);
 
             if (socketAppender.wasAppendSuccessful()) {
                 file.delete();
@@ -69,11 +65,11 @@ public class LogSender extends TimerTask {
             final ILoggingEvent loggingEvent = (ILoggingEvent) objectInputStream.readObject();
             return loggingEvent;
         } catch (final FileNotFoundException e) {
-            parent.addError("Could not find logging event on disk.", e);
+            socketAppender.addError("Could not find logging event on disk.", e);
         } catch (final ClassNotFoundException e) {
-            parent.addError("Could not de-serialize logging event from disk.", e);
+            socketAppender.addError("Could not de-serialize logging event from disk.", e);
         } catch (final IOException e) {
-            parent.addError("Could not load logging event from disk.", e);
+            socketAppender.addError("Could not load logging event from disk.", e);
         } finally {
             if (objectInputStream != null) {
                 try {
