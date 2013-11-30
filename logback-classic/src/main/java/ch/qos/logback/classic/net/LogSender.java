@@ -17,17 +17,10 @@ import java.util.TimerTask;
 // TODO add dependencies to remove boilerplate (IOUtils, Lists, Optionals)
 public class LogSender extends TimerTask {
 
-    private final BufferingSocketAppender socketAppender;
-    private final int batchSize;
-    private final String logFolderPath;
+    private final FileBufferingSocketAppender socketAppender;
 
-    public LogSender(
-            final BufferingSocketAppender socketAppender,
-            final int batchSize,
-            final String logFolderPath) {
-        this.socketAppender = socketAppender;
-        this.batchSize = batchSize;
-        this.logFolderPath = logFolderPath;
+    public LogSender(final FileBufferingSocketAppender appender) {
+        this.socketAppender = appender;
     }
 
     @Override
@@ -92,7 +85,7 @@ public class LogSender extends TimerTask {
     }
 
     private List<File> getFilesToSend() {
-        final File logFolder = new File(logFolderPath);
+        final File logFolder = new File(socketAppender.getLogFolder());
         final File[] files = logFolder.listFiles();
 
         final List<File> ordered = new ArrayList<File>();
@@ -108,8 +101,8 @@ public class LogSender extends TimerTask {
             }
         });
 
-        final int lastIndex = ordered.size() - 1;
-        final int lastIndexOrBatchSize = Math.min(lastIndex, batchSize);
+        final int size = ordered.size();
+        final int lastIndexOrBatchSize = Math.min(size, socketAppender.getBatchSize());
         return ordered.subList(0, lastIndexOrBatchSize);
     }
 }

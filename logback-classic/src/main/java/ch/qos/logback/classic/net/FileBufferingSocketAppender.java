@@ -9,22 +9,25 @@ import java.io.ObjectOutputStream;
 import java.util.Timer;
 import java.util.UUID;
 
-// TODO make constants configurable
-public class BufferingSocketAppender extends SocketAppender {
+public class FileBufferingSocketAppender extends SocketAppender {
 
     private static final String FILE_ENDING = ".ser";
-    private static final String LOG_FOLDER = "/sdcard/logs/";
-    private static final int BATCH_SIZE = 50;
-    private static final long SEND_INTERVAL = 60000;
+    private static final String DEFAULT_LOG_FOLDER = "/sdcard/logs/";
+    private static final int DEFAULT_BATCH_SIZE = 50;
+    private static final long DEFAULT_SEND_INTERVAL = 60000;
+
+    private String logFolder = DEFAULT_LOG_FOLDER;
+    private int batchSize = DEFAULT_BATCH_SIZE;
+    private long sendInterval = DEFAULT_SEND_INTERVAL;
 
     private Timer timer;
 
     @Override
     public void start() {
         super.start();
-        final LogSender logSender = new LogSender(this, BATCH_SIZE, LOG_FOLDER);
+        final LogSender logSender = new LogSender(this);
         timer = new Timer();
-        timer.schedule(logSender, SEND_INTERVAL, SEND_INTERVAL);
+        timer.schedule(logSender, getSendInterval(), getSendInterval());
     }
 
     @Override
@@ -72,13 +75,37 @@ public class BufferingSocketAppender extends SocketAppender {
     }
 
     private void createLogFolderIfAbsent() {
-        final File folder = new File(LOG_FOLDER);
+        final File folder = new File(getLogFolder());
         if (!folder.exists()) {
             folder.mkdirs();
         }
     }
 
     private String generateFileName() {
-        return LOG_FOLDER + UUID.randomUUID() + FILE_ENDING;
+        return getLogFolder() + UUID.randomUUID() + FILE_ENDING;
+    }
+
+    public String getLogFolder() {
+        return logFolder;
+    }
+
+    public void setLogFolder(String logFolder) {
+        this.logFolder = logFolder;
+    }
+
+    public int getBatchSize() {
+        return batchSize;
+    }
+
+    public void setBatchSize(int batchSize) {
+        this.batchSize = batchSize;
+    }
+
+    public long getSendInterval() {
+        return sendInterval;
+    }
+
+    public void setSendInterval(long sendInterval) {
+        this.sendInterval = sendInterval;
     }
 }
