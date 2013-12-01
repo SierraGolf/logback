@@ -32,6 +32,7 @@ public class FileBufferingSocketAppender extends SocketAppender {
 
     @Override
     protected void append(final ILoggingEvent event) {
+        postProcessEvent(event);
         createLogFolderIfAbsent();
 
         FileOutputStream fileOutputStream = null;
