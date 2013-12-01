@@ -2,6 +2,7 @@ package ch.qos.logback.classic.net;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -86,7 +87,12 @@ public class LogSender extends TimerTask {
 
     private List<File> getFilesToSend() {
         final File logFolder = new File(socketAppender.getLogFolder());
-        final File[] files = logFolder.listFiles();
+        final File[] files = logFolder.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(final File file) {
+                return file.isFile() && file.getName().endsWith(socketAppender.getFileEnding());
+            }
+        });
 
         final List<File> ordered = new ArrayList<File>();
         Collections.addAll(ordered, files);

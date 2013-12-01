@@ -108,4 +108,9 @@ public class FileBufferingSocketAppender extends SocketAppender {
     public void setSendInterval(long sendInterval) {
         this.sendInterval = sendInterval;
     }
+
+    public String getFileEnding() {
+        return FILE_ENDING;
+    }
+
 }
