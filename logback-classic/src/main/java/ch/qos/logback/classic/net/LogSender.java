@@ -38,6 +38,8 @@ public class LogSender extends TimerTask {
 
             final boolean couldNotReadLoggingEvent = loggingEvent == null;
             if (couldNotReadLoggingEvent) {
+                socketAppender.addWarn("Deserialization for logging event at " + file.getAbsolutePath() + " failed, deleting file.");
+                file.delete();
                 continue;
             }
 
