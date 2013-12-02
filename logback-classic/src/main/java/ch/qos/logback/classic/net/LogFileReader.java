@@ -13,39 +13,65 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.TimerTask;
 
+public class LogFileReader extends TimerTask {
 
-// TODO think about directly serializing into the socket without deserializing first
-// TODO add dependencies to remove boilerplate (IOUtils, Lists, Optionals)
-public class LogSender extends TimerTask {
+    private final FileBufferingSocketAppender appender;
 
-    private final FileBufferingSocketAppender socketAppender;
-
-    public LogSender(final FileBufferingSocketAppender appender) {
-        this.socketAppender = appender;
+    public LogFileReader(final FileBufferingSocketAppender appender) {
+        this.appender = appender;
     }
 
     @Override
     public void run() {
 
-        if (socketAppender.isNotConnected()) {
+        if (appender.isNotConnected()) {
             return;
         }
 
-        final List<File> toSend = getFilesToSend();
+        final List<File> allFilesOrderedByDate = getAllFilesOrderedByDate();
+        final List<File> filesToDelete;
+        final List<File> filesToSend;
 
-        for (final File file : toSend) {
+        final int size = allFilesOrderedByDate.size();
+        final boolean quotaIsReached = allFilesOrderedByDate.size() > appender.getFileCountQuota();
+        if (quotaIsReached) {
+            final int lastToBeRemoved = allFilesOrderedByDate.size() - appender.getFileCountQuota();
+            filesToDelete = new ArrayList<File>(allFilesOrderedByDate.subList(0, lastToBeRemoved));
+            final int lastIndex = Math.min(lastToBeRemoved + appender.getBatchSize(), size);
+            filesToSend = new ArrayList<File>(allFilesOrderedByDate.subList(lastToBeRemoved, lastIndex));
+        } else {
+            filesToDelete = Collections.emptyList();
+            final int lastIndex = Math.min(appender.getBatchSize(), size);
+            filesToSend = new ArrayList<File>(allFilesOrderedByDate.subList(0, lastIndex));
+        }
+
+        delete(filesToDelete);
+        send(filesToSend);
+    }
+
+    private void delete(final List<File> files) {
+        for (final File file : files) {
+            file.delete();
+        }
+    }
+
+    private void send(final List<File> files) {
+        for (final File file : files) {
             final ILoggingEvent loggingEvent = deserialize(file);
 
             final boolean couldNotReadLoggingEvent = loggingEvent == null;
             if (couldNotReadLoggingEvent) {
-                socketAppender.addWarn("Deserialization for logging event at " + file.getAbsolutePath() + " failed, deleting file.");
+                // TODO why does this happen
+                // 1. parallel reading/writing (maybe then the event would be picked up by the next run
+                // 2. broken file because app crashed during write
+                appender.addWarn("Deserialization for logging event at " + file.getAbsolutePath() + " failed, deleting file.");
                 file.delete();
                 continue;
             }
 
-            socketAppender.superAppend(loggingEvent);
+            appender.superAppend(loggingEvent);
 
-            if (socketAppender.wasAppendSuccessful()) {
+            if (appender.wasAppendSuccessful()) {
                 file.delete();
             }
         }
@@ -61,11 +87,11 @@ public class LogSender extends TimerTask {
             final ILoggingEvent loggingEvent = (ILoggingEvent) objectInputStream.readObject();
             return loggingEvent;
         } catch (final FileNotFoundException e) {
-            socketAppender.addError("Could not find logging event on disk.", e);
+            appender.addError("Could not find logging event on disk.", e);
         } catch (final ClassNotFoundException e) {
-            socketAppender.addError("Could not de-serialize logging event from disk.", e);
+            appender.addError("Could not de-serialize logging event from disk.", e);
         } catch (final IOException e) {
-            socketAppender.addError("Could not load logging event from disk.", e);
+            appender.addError("Could not load logging event from disk.", e);
         } finally {
             if (objectInputStream != null) {
                 try {
@@ -87,12 +113,12 @@ public class LogSender extends TimerTask {
         return null;
     }
 
-    private List<File> getFilesToSend() {
-        final File logFolder = new File(socketAppender.getLogFolder());
+    private List<File> getAllFilesOrderedByDate() {
+        final File logFolder = new File(appender.getLogFolder());
         final File[] files = logFolder.listFiles(new FileFilter() {
             @Override
             public boolean accept(final File file) {
-                return file.isFile() && file.getName().endsWith(socketAppender.getFileEnding());
+                return file.isFile() && file.getName().endsWith(appender.getFileEnding());
             }
         });
 
@@ -109,8 +135,6 @@ public class LogSender extends TimerTask {
             }
         });
 
-        final int size = ordered.size();
-        final int lastIndexOrBatchSize = Math.min(size, socketAppender.getBatchSize());
-        return ordered.subList(0, lastIndexOrBatchSize);
+        return ordered;
     }
 }

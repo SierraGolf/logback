@@ -15,23 +15,29 @@ public class FileBufferingSocketAppender extends SocketAppender {
     private static final String DEFAULT_LOG_FOLDER = "/sdcard/logs/";
     private static final int DEFAULT_BATCH_SIZE = 50;
     private static final long DEFAULT_SEND_INTERVAL = 60000;
+    private static final int DEFAULT_QUOTA = 500;
 
     private String logFolder = DEFAULT_LOG_FOLDER;
     private int batchSize = DEFAULT_BATCH_SIZE;
     private long sendInterval = DEFAULT_SEND_INTERVAL;
+    private int fileCountQuota = DEFAULT_QUOTA;
 
     private Timer timer;
 
     @Override
     public void start() {
         super.start();
-        final LogSender logSender = new LogSender(this);
+        final LogFileReader logFileReader = new LogFileReader(this);
         timer = new Timer();
-        timer.schedule(logSender, getSendInterval(), getSendInterval());
+        timer.schedule(logFileReader, getSendInterval(), getSendInterval());
     }
 
     @Override
     protected void append(final ILoggingEvent event) {
+        if (!isStarted()) {
+            return;
+        }
+
         postProcessEvent(event);
         createLogFolderIfAbsent();
 
@@ -114,4 +120,11 @@ public class FileBufferingSocketAppender extends SocketAppender {
         return FILE_ENDING;
     }
 
+    public int getFileCountQuota() {
+        return fileCountQuota;
+    }
+
+    public void setFileCountQuota(int fileCountQuota) {
+        this.fileCountQuota = fileCountQuota;
+    }
 }
