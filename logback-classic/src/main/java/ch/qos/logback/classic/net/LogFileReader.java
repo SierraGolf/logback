@@ -24,10 +24,6 @@ public class LogFileReader extends TimerTask {
     @Override
     public void run() {
 
-        if (appender.isNotConnected()) {
-            return;
-        }
-
         final List<File> allFilesOrderedByDate = getAllFilesOrderedByDate();
         final List<File> filesToDelete;
         final List<File> filesToSend;
@@ -56,6 +52,7 @@ public class LogFileReader extends TimerTask {
     }
 
     private void send(final List<File> files) {
+
         for (final File file : files) {
             final ILoggingEvent loggingEvent = deserialize(file);
 
@@ -67,6 +64,10 @@ public class LogFileReader extends TimerTask {
                 appender.addWarn("Deserialization for logging event at " + file.getAbsolutePath() + " failed, deleting file.");
                 file.delete();
                 continue;
+            }
+
+            if (appender.isNotConnected()) {
+                return;
             }
 
             appender.superAppend(loggingEvent);
