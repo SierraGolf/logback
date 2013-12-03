@@ -83,7 +83,16 @@ public class FileBufferingSocketAppender extends SocketAppender {
     }
 
     public void setLogFolder(String logFolder) {
-        this.logFolder = logFolder;
+        this.logFolder = format(logFolder);
+    }
+
+    private String format(String logFolder) {
+
+        if (logFolder.endsWith("/")) {
+            return logFolder;
+        }
+
+        return logFolder + "/";
     }
 
     public int getBatchSize() {
