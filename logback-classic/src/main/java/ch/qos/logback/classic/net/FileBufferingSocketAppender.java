@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.Timer;
 import java.util.UUID;
+import org.apache.commons.io.IOUtils;
 
 public class FileBufferingSocketAppender extends SocketAppender {
 
@@ -48,26 +49,11 @@ public class FileBufferingSocketAppender extends SocketAppender {
             fileOutputStream = new FileOutputStream(fileName);
             outputStream = new ObjectOutputStream(fileOutputStream);
             outputStream.writeObject(LoggingEventVO.build(event));
-            outputStream.close();
-            fileOutputStream.close();
         } catch (final IOException e) {
             addError("Could not write logging event to disk.", e);
         } finally {
-            if (fileOutputStream != null) {
-                try {
-                    fileOutputStream.close();
-                } catch (final IOException e) {
-                    // ignore error on close
-                }
-            }
-
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                } catch (IOException e) {
-                    // ignore error on close
-                }
-            }
+            IOUtils.closeQuietly(fileOutputStream);
+            IOUtils.closeQuietly(outputStream);
         }
     }
 

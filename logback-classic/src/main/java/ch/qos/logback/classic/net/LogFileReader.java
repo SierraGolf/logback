@@ -1,17 +1,18 @@
 package ch.qos.logback.classic.net;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import com.google.common.collect.Lists;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.TimerTask;
+import org.apache.commons.io.IOUtils;
 
 public class LogFileReader extends TimerTask {
 
@@ -32,13 +33,13 @@ public class LogFileReader extends TimerTask {
         final boolean quotaIsReached = allFilesOrderedByDate.size() > appender.getFileCountQuota();
         if (quotaIsReached) {
             final int lastToBeRemoved = allFilesOrderedByDate.size() - appender.getFileCountQuota();
-            filesToDelete = new ArrayList<File>(allFilesOrderedByDate.subList(0, lastToBeRemoved));
+            filesToDelete = Lists.newArrayList(allFilesOrderedByDate.subList(0, lastToBeRemoved));
             final int lastIndex = Math.min(lastToBeRemoved + appender.getBatchSize(), size);
-            filesToSend = new ArrayList<File>(allFilesOrderedByDate.subList(lastToBeRemoved, lastIndex));
+            filesToSend = Lists.newArrayList(allFilesOrderedByDate.subList(lastToBeRemoved, lastIndex));
         } else {
             filesToDelete = Collections.emptyList();
             final int lastIndex = Math.min(appender.getBatchSize(), size);
-            filesToSend = new ArrayList<File>(allFilesOrderedByDate.subList(0, lastIndex));
+            filesToSend = Lists.newArrayList(allFilesOrderedByDate.subList(0, lastIndex));
         }
 
         delete(filesToDelete);
@@ -94,21 +95,8 @@ public class LogFileReader extends TimerTask {
         } catch (final IOException e) {
             appender.addError("Could not load logging event from disk.", e);
         } finally {
-            if (objectInputStream != null) {
-                try {
-                    objectInputStream.close();
-                } catch (final IOException e) {
-                    // ignore error on close
-                }
-            }
-
-            if (fileInputStream != null) {
-                try {
-                    fileInputStream.close();
-                } catch (IOException e) {
-                    // ignore error on close
-                }
-            }
+            IOUtils.closeQuietly(objectInputStream);
+            IOUtils.closeQuietly(fileInputStream);
         }
 
         return null;
@@ -123,8 +111,8 @@ public class LogFileReader extends TimerTask {
             }
         });
 
-        final List<File> ordered = new ArrayList<File>();
-        Collections.addAll(ordered, files);
+        final List<File> ordered = Lists.newArrayList(files);
+
         Collections.sort(ordered, new Comparator<File>() {
             @Override
             public int compare(final File lhs, final File rhs) {
