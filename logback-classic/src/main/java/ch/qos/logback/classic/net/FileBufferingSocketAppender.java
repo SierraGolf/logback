@@ -2,34 +2,44 @@ package ch.qos.logback.classic.net;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.LoggingEventVO;
+import ch.qos.logback.classic.util.Closeables;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
+import java.io.ObjectOutput;
 import java.util.Timer;
 import java.util.UUID;
-import org.apache.commons.io.IOUtils;
 
 public class FileBufferingSocketAppender extends SocketAppender {
 
-    private static final String FILE_ENDING = ".ser";
+    // TODO think about removing the dot
+    private static final String DEFAULT_FILE_ENDING = ".ser";
     private static final String DEFAULT_LOG_FOLDER = "/sdcard/logs/";
     private static final int DEFAULT_BATCH_SIZE = 50;
     private static final long DEFAULT_SEND_INTERVAL = 60000;
-    private static final int DEFAULT_QUOTA = 500;
+    private static final int DEFAULT_FILE_COUNT_QUOTA = 500;
 
     private String logFolder = DEFAULT_LOG_FOLDER;
+    private String fileEnding = DEFAULT_FILE_ENDING;
     private int batchSize = DEFAULT_BATCH_SIZE;
     private long sendInterval = DEFAULT_SEND_INTERVAL;
-    private int fileCountQuota = DEFAULT_QUOTA;
+    private int fileCountQuota = DEFAULT_FILE_COUNT_QUOTA;
 
-    private Timer timer;
+    private final Timer timer;
+    private final IOProvider ioProvider;
+
+    public FileBufferingSocketAppender() {
+        this(new Timer(), new IOProvider());
+    }
+
+    FileBufferingSocketAppender(final Timer timer, final IOProvider ioProvider) {
+        this.timer = timer;
+        this.ioProvider = ioProvider;
+    }
 
     @Override
     public void start() {
         super.start();
-        final LogFileReader logFileReader = new LogFileReader(this);
-        timer = new Timer();
+        final LogFileReader logFileReader = new LogFileReader(this, ioProvider);
         timer.schedule(logFileReader, getSendInterval(), getSendInterval());
     }
 
@@ -39,21 +49,18 @@ public class FileBufferingSocketAppender extends SocketAppender {
             return;
         }
 
-        postProcessEvent(event);
         createLogFolderIfAbsent();
+        postProcessEvent(event);
 
-        FileOutputStream fileOutputStream = null;
-        ObjectOutputStream outputStream = null;
+        ObjectOutput objectOutput = null;
         try {
             final String fileName = generateFileName();
-            fileOutputStream = new FileOutputStream(fileName);
-            outputStream = new ObjectOutputStream(fileOutputStream);
-            outputStream.writeObject(LoggingEventVO.build(event));
+            objectOutput = ioProvider.newObjectOutput(fileName);
+            objectOutput.writeObject(LoggingEventVO.build(event));
         } catch (final IOException e) {
             addError("Could not write logging event to disk.", e);
         } finally {
-            IOUtils.closeQuietly(fileOutputStream);
-            IOUtils.closeQuietly(outputStream);
+            Closeables.close(objectOutput);
         }
     }
 
@@ -75,18 +82,18 @@ public class FileBufferingSocketAppender extends SocketAppender {
     }
 
     private String generateFileName() {
-        return getLogFolder() + UUID.randomUUID() + FILE_ENDING;
+        return getLogFolder() + UUID.randomUUID() + DEFAULT_FILE_ENDING;
     }
 
     public String getLogFolder() {
         return logFolder;
     }
 
-    public void setLogFolder(String logFolder) {
+    public void setLogFolder(final String logFolder) {
         this.logFolder = format(logFolder);
     }
 
-    private String format(String logFolder) {
+    private String format(final String logFolder) {
 
         if (logFolder.endsWith("/")) {
             return logFolder;
@@ -99,7 +106,7 @@ public class FileBufferingSocketAppender extends SocketAppender {
         return batchSize;
     }
 
-    public void setBatchSize(int batchSize) {
+    public void setBatchSize(final int batchSize) {
         this.batchSize = batchSize;
     }
 
@@ -107,19 +114,19 @@ public class FileBufferingSocketAppender extends SocketAppender {
         return sendInterval;
     }
 
-    public void setSendInterval(long sendInterval) {
+    public void setSendInterval(final long sendInterval) {
         this.sendInterval = sendInterval;
     }
 
     public String getFileEnding() {
-        return FILE_ENDING;
+        return fileEnding;
     }
 
     public int getFileCountQuota() {
         return fileCountQuota;
     }
 
-    public void setFileCountQuota(int fileCountQuota) {
+    public void setFileCountQuota(final int fileCountQuota) {
         this.fileCountQuota = fileCountQuota;
     }
 }

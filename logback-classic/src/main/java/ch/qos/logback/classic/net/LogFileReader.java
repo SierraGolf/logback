@@ -1,25 +1,26 @@
 package ch.qos.logback.classic.net;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.util.Closeables;
 import com.google.common.collect.Lists;
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.ObjectInputStream;
+import java.io.ObjectInput;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.TimerTask;
-import org.apache.commons.io.IOUtils;
 
 public class LogFileReader extends TimerTask {
 
     private final FileBufferingSocketAppender appender;
+    private final IOProvider ioProvider;
 
-    public LogFileReader(final FileBufferingSocketAppender appender) {
+    public LogFileReader(final FileBufferingSocketAppender appender, final IOProvider ioProvider) {
         this.appender = appender;
+        this.ioProvider = ioProvider;
     }
 
     @Override
@@ -81,12 +82,10 @@ public class LogFileReader extends TimerTask {
 
     private ILoggingEvent deserialize(final File file) {
 
-        FileInputStream fileInputStream = null;
-        ObjectInputStream objectInputStream = null;
+        ObjectInput objectInput = null;
         try {
-            fileInputStream = new FileInputStream(file);
-            objectInputStream = new ObjectInputStream(fileInputStream);
-            final ILoggingEvent loggingEvent = (ILoggingEvent) objectInputStream.readObject();
+            objectInput = ioProvider.newObjectInput(file);
+            final ILoggingEvent loggingEvent = (ILoggingEvent) objectInput.readObject();
             return loggingEvent;
         } catch (final FileNotFoundException e) {
             appender.addError("Could not find logging event on disk.", e);
@@ -95,8 +94,7 @@ public class LogFileReader extends TimerTask {
         } catch (final IOException e) {
             appender.addError("Could not load logging event from disk.", e);
         } finally {
-            IOUtils.closeQuietly(objectInputStream);
-            IOUtils.closeQuietly(fileInputStream);
+            Closeables.close(objectInput);
         }
 
         return null;
@@ -110,6 +108,11 @@ public class LogFileReader extends TimerTask {
                 return file.isFile() && file.getName().endsWith(appender.getFileEnding());
             }
         });
+
+        if (files == null) {
+            // TODO test
+            return Collections.emptyList();
+        }
 
         final List<File> ordered = Lists.newArrayList(files);
 
