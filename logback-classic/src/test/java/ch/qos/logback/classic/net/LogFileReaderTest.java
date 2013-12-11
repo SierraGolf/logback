@@ -248,10 +248,11 @@ public class LogFileReaderTest {
     }
 
     @Test
-    public void closesStreamOnSuccessFulFileRead() throws IOException {
+    public void closesStreamOnSuccessFulFileRead() throws IOException, ClassNotFoundException {
 
         // given
         final ObjectInput objectInput = mock(ObjectInput.class);
+        when(objectInput.readObject()).thenReturn(mock(ILoggingEvent.class));
         when(ioProvider.newObjectInput(any(File.class))).thenReturn(objectInput);
 
         addFile("a.ser", DateTime.now().plusMinutes(1));

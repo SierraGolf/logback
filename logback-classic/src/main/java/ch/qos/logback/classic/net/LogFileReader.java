@@ -2,6 +2,7 @@ package ch.qos.logback.classic.net;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.util.Closeables;
+import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
 import java.io.File;
 import java.io.FileFilter;
@@ -56,11 +57,11 @@ public class LogFileReader extends TimerTask {
     private void send(final List<File> files) {
 
         for (final File file : files) {
-            final ILoggingEvent loggingEvent = deserialize(file);
+            final Optional<ILoggingEvent> loggingEvent = deserialize(file);
 
-            final boolean couldNotReadLoggingEvent = loggingEvent == null;
+            final boolean couldNotReadLoggingEvent = !loggingEvent.isPresent();
             if (couldNotReadLoggingEvent) {
-                // TODO why does this happen
+                // TODO why does this happen?
                 // 1. parallel reading/writing (maybe then the event would be picked up by the next run
                 // 2. broken file because app crashed during write
                 appender.addWarn("Deserialization for logging event at " + file.getAbsolutePath() + " failed, deleting file.");
@@ -72,7 +73,7 @@ public class LogFileReader extends TimerTask {
                 return;
             }
 
-            appender.superAppend(loggingEvent);
+            appender.superAppend(loggingEvent.get());
 
             if (appender.wasAppendSuccessful()) {
                 file.delete();
@@ -80,13 +81,13 @@ public class LogFileReader extends TimerTask {
         }
     }
 
-    private ILoggingEvent deserialize(final File file) {
+    private Optional<ILoggingEvent> deserialize(final File file) {
 
         ObjectInput objectInput = null;
         try {
             objectInput = ioProvider.newObjectInput(file);
             final ILoggingEvent loggingEvent = (ILoggingEvent) objectInput.readObject();
-            return loggingEvent;
+            return Optional.of(loggingEvent);
         } catch (final FileNotFoundException e) {
             appender.addError("Could not find logging event on disk.", e);
         } catch (final ClassNotFoundException e) {
@@ -97,7 +98,7 @@ public class LogFileReader extends TimerTask {
             Closeables.close(objectInput);
         }
 
-        return null;
+        return Optional.absent();
     }
 
     private List<File> getAllFilesOrderedByDate() {
