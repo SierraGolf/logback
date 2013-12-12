@@ -21,7 +21,7 @@ public class FileBufferingSocketAppender extends SocketAppender {
     private String logFolder = DEFAULT_LOG_FOLDER;
     private String fileEnding = DEFAULT_FILE_ENDING;
     private int batchSize = DEFAULT_BATCH_SIZE;
-    private long sendInterval = DEFAULT_SEND_INTERVAL;
+    private long readInterval = DEFAULT_SEND_INTERVAL;
     private int fileCountQuota = DEFAULT_FILE_COUNT_QUOTA;
 
     private final Timer timer;
@@ -40,7 +40,7 @@ public class FileBufferingSocketAppender extends SocketAppender {
     public void start() {
         super.start();
         final LogFileReader logFileReader = new LogFileReader(this, ioProvider);
-        timer.schedule(logFileReader, getSendInterval(), getSendInterval());
+        timer.schedule(logFileReader, getReadInterval(), getReadInterval());
     }
 
     @Override
@@ -110,12 +110,12 @@ public class FileBufferingSocketAppender extends SocketAppender {
         this.batchSize = batchSize;
     }
 
-    public long getSendInterval() {
-        return sendInterval;
+    public long getReadInterval() {
+        return readInterval;
     }
 
-    public void setSendInterval(final long sendInterval) {
-        this.sendInterval = sendInterval;
+    public void setReadInterval(final long readInterval) {
+        this.readInterval = readInterval;
     }
 
     public String getFileEnding() {

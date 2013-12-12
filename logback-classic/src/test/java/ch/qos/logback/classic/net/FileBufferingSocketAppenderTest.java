@@ -78,7 +78,7 @@ public class FileBufferingSocketAppenderTest {
 
     @Test
     public void hasDefaultValueForSendInterval() {
-        assertThat(appender.getSendInterval(), is(not(0L)));
+        assertThat(appender.getReadInterval(), is(not(0L)));
     }
 
     @Test
@@ -120,7 +120,7 @@ public class FileBufferingSocketAppenderTest {
     public void startsTimerWithConfiguredIntervalOnStart() {
         appender.start();
 
-        verify(timer).schedule(any(TimerTask.class), eq(appender.getSendInterval()), eq(appender.getSendInterval()));
+        verify(timer).schedule(any(TimerTask.class), eq(appender.getReadInterval()), eq(appender.getReadInterval()));
     }
 
     @Test
