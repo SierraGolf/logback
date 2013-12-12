@@ -14,16 +14,15 @@
 package ch.qos.logback.classic.android;
 
 
-import org.junit.Before;
-import org.junit.Test;
-
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.LoggingEvent;
 import ch.qos.logback.classic.spi.ThrowableProxy;
+import org.junit.Before;
+import org.junit.Test;
 import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertThat;
-import static org.mockito.AdditionalMatchers.not;
 
 /**
  * Tests the {@link LogcatAppender} class
