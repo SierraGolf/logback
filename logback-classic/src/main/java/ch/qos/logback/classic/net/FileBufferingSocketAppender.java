@@ -3,6 +3,7 @@ package ch.qos.logback.classic.net;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.LoggingEventVO;
 import ch.qos.logback.classic.util.Closeables;
+import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectOutput;
@@ -11,7 +12,6 @@ import java.util.UUID;
 
 public class FileBufferingSocketAppender extends SocketAppender {
 
-    // TODO think about removing the dot
     private static final String DEFAULT_FILE_ENDING = ".ser";
     private static final String DEFAULT_LOG_FOLDER = "/sdcard/logs/";
     private static final int DEFAULT_BATCH_SIZE = 50;
@@ -28,7 +28,7 @@ public class FileBufferingSocketAppender extends SocketAppender {
     private final IOProvider ioProvider;
 
     public FileBufferingSocketAppender() {
-        this(new Timer(), new IOProvider());
+        this(new Timer("LogEventReader"), new IOProvider());
     }
 
     FileBufferingSocketAppender(final Timer timer, final IOProvider ioProvider) {
@@ -52,15 +52,22 @@ public class FileBufferingSocketAppender extends SocketAppender {
         createLogFolderIfAbsent();
         postProcessEvent(event);
 
+        boolean savedSuccessfully = false;
+        final String fileName = generateFileName();
+        final String tempName = fileName + "-tmp";
         ObjectOutput objectOutput = null;
         try {
-            final String fileName = generateFileName();
-            objectOutput = ioProvider.newObjectOutput(fileName);
+            objectOutput = ioProvider.newObjectOutput(tempName);
             objectOutput.writeObject(LoggingEventVO.build(event));
+            savedSuccessfully = true;
         } catch (final IOException e) {
             addError("Could not write logging event to disk.", e);
         } finally {
             Closeables.close(objectOutput);
+        }
+
+        if (savedSuccessfully) {
+            renameFileFromTempToFinalName(fileName, tempName);
         }
     }
 
@@ -74,32 +81,12 @@ public class FileBufferingSocketAppender extends SocketAppender {
         timer.cancel();
     }
 
-    private void createLogFolderIfAbsent() {
-        final File folder = new File(getLogFolder());
-        if (!folder.exists()) {
-            folder.mkdirs();
-        }
-    }
-
-    private String generateFileName() {
-        return getLogFolder() + UUID.randomUUID() + DEFAULT_FILE_ENDING;
-    }
-
     public String getLogFolder() {
         return logFolder;
     }
 
     public void setLogFolder(final String logFolder) {
         this.logFolder = format(logFolder);
-    }
-
-    private String format(final String logFolder) {
-
-        if (logFolder.endsWith("/")) {
-            return logFolder;
-        }
-
-        return logFolder + "/";
     }
 
     public int getBatchSize() {
@@ -128,5 +115,33 @@ public class FileBufferingSocketAppender extends SocketAppender {
 
     public void setFileCountQuota(final int fileCountQuota) {
         this.fileCountQuota = fileCountQuota;
+    }
+
+    private String format(final String logFolder) {
+
+        if (logFolder.endsWith(File.separator)) {
+            return logFolder;
+        }
+
+        return logFolder + File.separator;
+    }
+
+    private void createLogFolderIfAbsent() {
+        final File folder = new File(getLogFolder());
+        if (!folder.exists()) {
+            folder.mkdirs();
+        }
+    }
+
+    private String generateFileName() {
+        return getLogFolder() + UUID.randomUUID() + DEFAULT_FILE_ENDING;
+    }
+
+    private void renameFileFromTempToFinalName(String fileName, String tempName) {
+        try {
+            Files.move(new File(tempName), new File(fileName));
+        } catch (final IOException e) {
+            addError("Could not rename file from " + tempName + " to " + fileName);
+        }
     }
 }

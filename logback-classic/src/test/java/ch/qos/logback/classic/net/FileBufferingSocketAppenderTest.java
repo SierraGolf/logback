@@ -5,6 +5,7 @@ import ch.qos.logback.classic.spi.LoggingEventVO;
 import ch.qos.logback.core.Context;
 import ch.qos.logback.core.status.Status;
 import ch.qos.logback.core.status.StatusManager;
+import com.google.common.base.Strings;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -24,7 +25,9 @@ import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
+import static ch.qos.logback.matchers.AnyTimes.anyTimes;
 import static ch.qos.logback.classic.net.testObjectBuilders.LoggingEventFactory.newLoggingEvent;
+import static ch.qos.logback.matchers.StatusMatchers.hasNoItemWhichContainsMessage;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.Matchers.endsWith;
@@ -70,7 +73,6 @@ public class FileBufferingSocketAppenderTest {
         when(context.getStatusManager()).thenReturn(statusManager);
     }
 
-    // TODO does not make sense with before anymore
     @Test
     public void hasDefaultValueForLogFolder() {
         assertThat(appender.getLogFolder(), is(notNullValue()));
@@ -249,7 +251,7 @@ public class FileBufferingSocketAppenderTest {
     }
 
     @Test
-    public void doesNotCallerDataWhenConfigured() throws IOException {
+    public void doesNotLoadCallerDataWhenConfigured() throws IOException {
 
         // given
         appender.setIncludeCallerData(false);
@@ -267,6 +269,35 @@ public class FileBufferingSocketAppenderTest {
         final LoggingEventVO loggingEventVO = (LoggingEventVO) captor.getValue();
 
         assertThat(loggingEventVO.hasCallerData(), is(false));
+    }
+
+    @Test
+    public void givesFilesSpecialTemporaryFileEndingWhileWritingToAvoidSimultaneousReadAndWrite() throws IOException {
+
+        // given
+        final FileBufferingSocketAppender appender = new FileBufferingSocketAppender();
+        final Context context = mock(Context.class);
+        final StatusManager statusManager = mock(StatusManager.class);
+        when(context.getStatusManager()).thenReturn(statusManager);
+
+        final String logFolder = folder.getRoot().getAbsolutePath() + "/foo/";
+        appender.setLogFolder(logFolder);
+        appender.setPort(6000);
+        appender.setRemoteHost("localhost");
+        appender.setContext(context);
+        appender.setLazy(true);
+        appender.setReadInterval(10);
+
+        // when
+        appender.start();
+        appender.append(newLoggingEvent().withMessage(Strings.repeat("some random string", 1000000)));
+        appender.stop();
+
+        // then
+        final ArgumentCaptor<Status> captor = ArgumentCaptor.forClass(Status.class);
+        verify(statusManager, anyTimes()).add(captor.capture());
+
+        assertThat(captor.getAllValues(), hasNoItemWhichContainsMessage("Could not load logging event from disk."));
     }
 
     private Answer<?> createExceptionThrowingObjectOutput() {
@@ -291,4 +322,6 @@ public class FileBufferingSocketAppenderTest {
             }
         };
     }
+
+
 }

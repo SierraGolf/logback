@@ -25,9 +25,9 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 import static ch.qos.logback.classic.net.testObjectBuilders.LoggingEventFactory.newLoggingEvent;
+import static ch.qos.logback.matchers.LoggingEventMatchers.containsMessage;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.Matchers.arrayWithSize;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.collection.IsArrayContaining.hasItemInArray;
 import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
@@ -111,12 +111,11 @@ public class LogFileReaderTest {
         final ArgumentCaptor<ILoggingEvent> captor = ArgumentCaptor.forClass(ILoggingEvent.class);
         verify(appender, times(5)).superAppend(captor.capture());
 
-        // TODO write custom matcher for event properties
-        assertThat(captor.getAllValues().get(0).getMessage(), is("a"));
-        assertThat(captor.getAllValues().get(1).getMessage(), is("b"));
-        assertThat(captor.getAllValues().get(2).getMessage(), is("c"));
-        assertThat(captor.getAllValues().get(3).getMessage(), is("d"));
-        assertThat(captor.getAllValues().get(4).getMessage(), is("e"));
+        assertThat(captor.getAllValues().get(0), containsMessage("a"));
+        assertThat(captor.getAllValues().get(1), containsMessage("b"));
+        assertThat(captor.getAllValues().get(2), containsMessage("c"));
+        assertThat(captor.getAllValues().get(3), containsMessage("d"));
+        assertThat(captor.getAllValues().get(4), containsMessage("e"));
     }
 
     @Test
@@ -137,10 +136,9 @@ public class LogFileReaderTest {
         final ArgumentCaptor<ILoggingEvent> captor = ArgumentCaptor.forClass(ILoggingEvent.class);
         verify(appender, times(3)).superAppend(captor.capture());
 
-        // TODO write custom matcher for event properties
-        assertThat(captor.getAllValues().get(0).getMessage(), is("a"));
-        assertThat(captor.getAllValues().get(1).getMessage(), is("b"));
-        assertThat(captor.getAllValues().get(2).getMessage(), is("c"));
+        assertThat(captor.getAllValues().get(0), containsMessage("a"));
+        assertThat(captor.getAllValues().get(1), containsMessage("b"));
+        assertThat(captor.getAllValues().get(2), containsMessage("c"));
     }
 
     @Test
