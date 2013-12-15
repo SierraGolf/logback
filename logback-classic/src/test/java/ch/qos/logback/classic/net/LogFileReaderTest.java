@@ -34,7 +34,9 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.matches;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.internal.verification.VerificationModeFactory.times;
 
@@ -291,6 +293,29 @@ public class LogFileReaderTest {
 
         // then
         assertThat(logFolder.list(), hasItemInArray("foo.bar"));
+    }
+
+    @Test
+    public void canHandleEmptyLogFolder() throws IOException {
+        // when
+        logFileReader.run();
+
+        // then
+        verifyZeroInteractions(ioProvider);
+        verify(appender, never()).superAppend(any(ILoggingEvent.class));
+    }
+
+    @Test
+    public void canHandleNonExistingLogFolder() throws IOException {
+        // given
+        when(appender.getLogFolder()).thenReturn("noLogFolderName");
+
+        // when
+        logFileReader.run();
+
+        // then
+        verifyZeroInteractions(ioProvider);
+        verify(appender, never()).superAppend(any(ILoggingEvent.class));
     }
 
     private Answer<?> newObjectInput() {

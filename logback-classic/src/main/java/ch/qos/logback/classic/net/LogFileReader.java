@@ -61,9 +61,6 @@ public class LogFileReader extends TimerTask {
 
             final boolean couldNotReadLoggingEvent = !loggingEvent.isPresent();
             if (couldNotReadLoggingEvent) {
-                // TODO why does this happen?
-                // 1. parallel reading/writing (maybe then the event would be picked up by the next run
-                // 2. broken file because app crashed during write
                 appender.addWarn("Deserialization for logging event at " + file.getAbsolutePath() + " failed, deleting file.");
                 file.delete();
                 continue;
@@ -111,7 +108,6 @@ public class LogFileReader extends TimerTask {
         });
 
         if (files == null) {
-            // TODO test
             return Collections.emptyList();
         }
 
