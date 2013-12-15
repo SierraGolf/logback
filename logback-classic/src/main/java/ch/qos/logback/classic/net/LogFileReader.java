@@ -70,9 +70,9 @@ public class LogFileReader extends TimerTask {
                 return;
             }
 
-            appender.superAppend(loggingEvent.get());
+            final boolean sendSuccessful = appender.feedBackingAppend(loggingEvent.get());
 
-            if (appender.wasAppendSuccessful()) {
+            if (sendSuccessful) {
                 file.delete();
             }
         }

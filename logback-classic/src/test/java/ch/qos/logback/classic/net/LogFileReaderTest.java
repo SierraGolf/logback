@@ -3,15 +3,6 @@ package ch.qos.logback.classic.net;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.LoggingEventVO;
 import ch.qos.logback.classic.util.Closeables;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
 import org.joda.time.DateTime;
 import org.junit.Before;
 import org.junit.Rule;
@@ -24,6 +15,9 @@ import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
+
+import java.io.*;
+
 import static ch.qos.logback.classic.net.testObjectBuilders.LoggingEventFactory.newLoggingEvent;
 import static ch.qos.logback.matchers.LoggingEventMatchers.containsMessage;
 import static org.hamcrest.CoreMatchers.not;
@@ -33,11 +27,7 @@ import static org.junit.Assert.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.matches;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.mockito.internal.verification.VerificationModeFactory.times;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -67,7 +57,7 @@ public class LogFileReaderTest {
         when(appender.getFileEnding()).thenReturn(".ser");
         when(appender.getFileCountQuota()).thenReturn(500);
         when(appender.getBatchSize()).thenReturn(50);
-        when(appender.wasAppendSuccessful()).thenReturn(Boolean.TRUE);
+        when(appender.feedBackingAppend(any(ILoggingEvent.class))).thenReturn(Boolean.TRUE);
     }
 
     @Test
@@ -109,7 +99,7 @@ public class LogFileReaderTest {
 
         // then
         final ArgumentCaptor<ILoggingEvent> captor = ArgumentCaptor.forClass(ILoggingEvent.class);
-        verify(appender, times(5)).superAppend(captor.capture());
+        verify(appender, times(5)).feedBackingAppend(captor.capture());
 
         assertThat(captor.getAllValues().get(0), containsMessage("a"));
         assertThat(captor.getAllValues().get(1), containsMessage("b"));
@@ -134,7 +124,7 @@ public class LogFileReaderTest {
 
         // then
         final ArgumentCaptor<ILoggingEvent> captor = ArgumentCaptor.forClass(ILoggingEvent.class);
-        verify(appender, times(3)).superAppend(captor.capture());
+        verify(appender, times(3)).feedBackingAppend(captor.capture());
 
         assertThat(captor.getAllValues().get(0), containsMessage("a"));
         assertThat(captor.getAllValues().get(1), containsMessage("b"));
@@ -152,7 +142,7 @@ public class LogFileReaderTest {
         logFileReader.run();
 
         // then
-        verify(appender, times(0)).superAppend(any(ILoggingEvent.class));
+        verify(appender, times(0)).feedBackingAppend(any(ILoggingEvent.class));
     }
 
     @Test
@@ -175,7 +165,7 @@ public class LogFileReaderTest {
     public void onlyDeletesEventsWhenNoIOExceptionOccurredDuringTransmission() throws IOException {
         // given
         when(ioProvider.newObjectInput(any(File.class))).thenAnswer(newObjectInput());
-        when(appender.wasAppendSuccessful()).thenReturn(Boolean.FALSE);
+        when(appender.feedBackingAppend(any(ILoggingEvent.class))).thenReturn(Boolean.FALSE);
         addFile("a.ser", DateTime.now().plusMinutes(1));
 
         // when
@@ -300,7 +290,7 @@ public class LogFileReaderTest {
 
         // then
         verifyZeroInteractions(ioProvider);
-        verify(appender, never()).superAppend(any(ILoggingEvent.class));
+        verify(appender, never()).feedBackingAppend(any(ILoggingEvent.class));
     }
 
     @Test
@@ -313,7 +303,7 @@ public class LogFileReaderTest {
 
         // then
         verifyZeroInteractions(ioProvider);
-        verify(appender, never()).superAppend(any(ILoggingEvent.class));
+        verify(appender, never()).feedBackingAppend(any(ILoggingEvent.class));
     }
 
     private Answer<?> newObjectInput() {

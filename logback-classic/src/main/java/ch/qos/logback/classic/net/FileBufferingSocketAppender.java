@@ -71,10 +71,6 @@ public class FileBufferingSocketAppender extends SocketAppender {
         }
     }
 
-    public void superAppend(final ILoggingEvent event) {
-        super.append(event);
-    }
-
     @Override
     public void stop() {
         super.stop();

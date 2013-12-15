@@ -59,7 +59,6 @@ public abstract class SocketAppenderBase<E> extends AppenderBase<E> {
   private Connector connector;
   private boolean initialized = false;
   private boolean lazyInit = false;
-  private IOException lastIOException;
   protected int counter = 0;
 
   /**
@@ -154,14 +153,18 @@ public abstract class SocketAppenderBase<E> extends AppenderBase<E> {
 
   @Override
   protected void append(E event) {
+    feedBackingAppend(event);
+  }
+
+  public boolean feedBackingAppend(E event) {
     if (event == null)
-      return;
+      return false;
 
     if (address == null) {
       addError("No remote host is set for SocketAppender named \""
-          + this.name
-          + "\". For more information, please visit http://logback.qos.ch/codes.html#socket_no_host");
-      return;
+              + this.name
+              + "\". For more information, please visit http://logback.qos.ch/codes.html#socket_no_host");
+      return false;
     }
 
     if (!initialized && lazyInit) {
@@ -182,9 +185,8 @@ public abstract class SocketAppenderBase<E> extends AppenderBase<E> {
           // System.err.println("Doing oos.reset()");
           oos.reset();
         }
-        lastIOException = null;
+        return true;
       } catch (IOException e) {
-        lastIOException = e;
         if (oos != null) {
           try {
             oos.close();
@@ -197,12 +199,11 @@ public abstract class SocketAppenderBase<E> extends AppenderBase<E> {
         if (reconnectionDelay > 0) {
           fireConnector();
         }
+
+        return false;
       }
     }
-  }
-
-  public boolean wasAppendSuccessful() {
-    return lastIOException == null;
+    return false;
   }
 
   protected abstract void postProcessEvent(E event);

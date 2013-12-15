@@ -21,7 +21,7 @@ public class LoggingEventMessageMatcher extends TypeSafeMatcher<ILoggingEvent> {
 
 	@Override
 	public boolean matchesSafely(final ILoggingEvent event) {
-		return matcher.matches(event.toString());
+		return matcher.matches(event.getMessage());
 	}
 
 	@Override
