@@ -130,7 +130,7 @@ public class FileBufferingSocketAppender extends SocketAppender {
     }
 
     private String generateFileName() {
-        return getLogFolder() + UUID.randomUUID() + DEFAULT_FILE_ENDING;
+        return getLogFolder() + UUID.randomUUID() + getFileEnding();
     }
 
     private void renameFileFromTempToFinalName(String fileName, String tempName) {
