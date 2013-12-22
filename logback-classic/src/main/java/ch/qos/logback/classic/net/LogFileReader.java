@@ -4,6 +4,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.util.Closeables;
 import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Longs;
+
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileNotFoundException;
@@ -120,7 +122,7 @@ public class LogFileReader extends TimerTask {
                 final long lhsLastModified = lhs.lastModified();
                 final long rhsLastModified = rhs.lastModified();
 
-                return lhsLastModified < rhsLastModified ? -1 : (lhsLastModified == rhsLastModified ? 0 : 1);
+                return Longs.compare(lhsLastModified, rhsLastModified);
             }
         });
 

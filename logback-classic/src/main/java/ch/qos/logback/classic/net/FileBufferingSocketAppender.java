@@ -9,13 +9,14 @@ import java.io.IOException;
 import java.io.ObjectOutput;
 import java.util.Timer;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class FileBufferingSocketAppender extends SocketAppender {
 
     private static final String DEFAULT_FILE_ENDING = ".ser";
     private static final String DEFAULT_LOG_FOLDER = "/sdcard/logs/";
     private static final int DEFAULT_BATCH_SIZE = 50;
-    private static final long DEFAULT_SEND_INTERVAL = 60000;
+    private static final long DEFAULT_SEND_INTERVAL = TimeUnit.MINUTES.toMillis(1);
     private static final int DEFAULT_FILE_COUNT_QUOTA = 500;
 
     private String logFolder = DEFAULT_LOG_FOLDER;
