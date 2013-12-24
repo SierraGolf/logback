@@ -17,20 +17,25 @@ import java.util.List;
 import java.util.TimerTask;
 
 /**
- * A {@link TimerTask} which works closely together with the {@link FileBufferingSocketAppender}.
- * It serves as a timed task which will take over the reading of serialized log events and either send
- * them or delete them according to the settings configured on the given {@link FileBufferingSocketAppender}
- * instance.
+ * A {@link TimerTask} which works closely together with the {@link FileBufferingSocketAppender} and the
+ * {@link SocketAppender}. It serves as a timed task which will take over the reading of serialized log events
+ * and either send them or delete them according to the provided {@link FileBufferingConfiguration}.
  *
  * @author Sebastian Gr&ouml;bler
  */
 public class LogFileReader extends TimerTask {
 
-  private final FileBufferingSocketAppender appender;
+  private final FileBufferingConfiguration configuration;
+  private final SocketAppender appender;
   private final ObjectIOProvider objectIoProvider;
 
-  public LogFileReader(final FileBufferingSocketAppender appender, final ObjectIOProvider objectIoProvider) {
-    this.appender = appender;
+  public LogFileReader(
+          final FileBufferingConfiguration configuration,
+          final SocketAppender socketAppender,
+          final ObjectIOProvider objectIoProvider) {
+
+    this.configuration = configuration;
+    this.appender = socketAppender;
     this.objectIoProvider = objectIoProvider;
   }
 
@@ -42,15 +47,15 @@ public class LogFileReader extends TimerTask {
     final List<File> filesToSend;
 
     final int size = allFilesOrderedByDate.size();
-    final boolean quotaIsReached = allFilesOrderedByDate.size() > appender.getFileCountQuota();
+    final boolean quotaIsReached = allFilesOrderedByDate.size() > configuration.getFileCountQuota();
     if (quotaIsReached) {
-      final int lastToBeRemoved = allFilesOrderedByDate.size() - appender.getFileCountQuota();
+      final int lastToBeRemoved = allFilesOrderedByDate.size() - configuration.getFileCountQuota();
       filesToDelete = Lists.newArrayList(allFilesOrderedByDate.subList(0, lastToBeRemoved));
-      final int lastIndex = Math.min(lastToBeRemoved + appender.getBatchSize(), size);
+      final int lastIndex = Math.min(lastToBeRemoved + configuration.getBatchSize(), size);
       filesToSend = Lists.newArrayList(allFilesOrderedByDate.subList(lastToBeRemoved, lastIndex));
     } else {
       filesToDelete = Collections.emptyList();
-      final int lastIndex = Math.min(appender.getBatchSize(), size);
+      final int lastIndex = Math.min(configuration.getBatchSize(), size);
       filesToSend = Lists.newArrayList(allFilesOrderedByDate.subList(0, lastIndex));
     }
 
@@ -135,11 +140,11 @@ public class LogFileReader extends TimerTask {
    * @return a list of files which matches the criteria, might be empty
    */
   private List<File> getAllFilesOrderedByDate() {
-    final File logFolder = new File(appender.getLogFolder());
+    final File logFolder = new File(configuration.getLogFolder());
     final File[] files = logFolder.listFiles(new FileFilter() {
       @Override
       public boolean accept(final File file) {
-        return file.isFile() && file.getName().endsWith(appender.getFileEnding());
+        return file.isFile() && file.getName().endsWith(configuration.getFileEnding());
       }
     });
 

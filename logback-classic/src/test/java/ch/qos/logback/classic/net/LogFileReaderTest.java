@@ -36,7 +36,10 @@ public class LogFileReaderTest {
   public TemporaryFolder folder = new TemporaryFolder();
 
   @Mock
-  private FileBufferingSocketAppender appender;
+  private SocketAppender appender;
+
+  @Mock
+  private FileBufferingConfiguration configuration;
 
   @Mock
   private ObjectIOProvider objectIoProvider;
@@ -52,10 +55,10 @@ public class LogFileReaderTest {
     logFolder = new File(logFolderPath);
     logFolder.mkdirs();
 
-    when(appender.getLogFolder()).thenReturn(logFolderPath);
-    when(appender.getFileEnding()).thenReturn(".ser");
-    when(appender.getFileCountQuota()).thenReturn(500);
-    when(appender.getBatchSize()).thenReturn(50);
+    when(configuration.getLogFolder()).thenReturn(logFolderPath);
+    when(configuration.getFileEnding()).thenReturn(".ser");
+    when(configuration.getFileCountQuota()).thenReturn(500);
+    when(configuration.getBatchSize()).thenReturn(50);
     when(appender.feedBackingAppend(any(ILoggingEvent.class))).thenReturn(Boolean.TRUE);
   }
 
@@ -64,8 +67,8 @@ public class LogFileReaderTest {
 
     // given
     when(objectIoProvider.newObjectInput(any(File.class))).thenAnswer(newObjectInput());
-    when(appender.getFileCountQuota()).thenReturn(3);
-    when(appender.getBatchSize()).thenReturn(0);
+    when(configuration.getFileCountQuota()).thenReturn(3);
+    when(configuration.getBatchSize()).thenReturn(0);
     addFile(toPath("a.ser"), DateTime.now().plusMinutes(1));
     addFile(toPath("b.ser"), DateTime.now().plusMinutes(2));
     addFile(toPath("c.ser"), DateTime.now().plusMinutes(3));
@@ -111,7 +114,7 @@ public class LogFileReaderTest {
   public void onlySendsTheConfiguredBatchSize() throws IOException {
     // given
     when(objectIoProvider.newObjectInput(any(File.class))).thenAnswer(newObjectInput());
-    when(appender.getBatchSize()).thenReturn(3);
+    when(configuration.getBatchSize()).thenReturn(3);
     addFile(newLoggingEvent().withMessage("a"), toPath("a.ser"), DateTime.now().plusMinutes(1));
     addFile(newLoggingEvent().withMessage("b"), toPath("b.ser"), DateTime.now().plusMinutes(2));
     addFile(newLoggingEvent().withMessage("c"), toPath("c.ser"), DateTime.now().plusMinutes(3));
@@ -295,7 +298,7 @@ public class LogFileReaderTest {
   @Test
   public void canHandleNonExistingLogFolder() throws IOException {
     // given
-    when(appender.getLogFolder()).thenReturn("noLogFolderName");
+    when(configuration.getLogFolder()).thenReturn("noLogFolderName");
 
     // when
     logFileReader.run();

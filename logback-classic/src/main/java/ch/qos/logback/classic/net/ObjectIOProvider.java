@@ -3,7 +3,7 @@ package ch.qos.logback.classic.net;
 import java.io.*;
 
 /**
- * Provides I/O streams for objects.
+ * Provides inputs and outputs for objects to and from files.
  *
  * @author Sebastian Gr&ouml;bler
  */

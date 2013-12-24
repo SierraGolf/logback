@@ -3,6 +3,8 @@ package ch.qos.logback.classic.net;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.LoggingEventVO;
 import ch.qos.logback.classic.util.Closeables;
+import ch.qos.logback.core.AppenderBase;
+import ch.qos.logback.core.Context;
 import com.google.common.io.Files;
 
 import java.io.File;
@@ -11,50 +13,67 @@ import java.io.IOException;
 import java.io.ObjectOutput;
 import java.util.Timer;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
+ * TODO add documentation for setters
  * Buffers log events to disk, so that they can be send over a socket
- * according to the specified settings. The default setting will
+ * according to the specified configuration. The default configuration will
  * buffer events to the folder /sdcard/logs and try to send them in chronological order
  * in batches of 50 every minute, unless the file count quota of 500 is reached, in which
  * case the events which are the oldest will be dropped.
  *
  * @author Sebastian Gr&ouml;bler
  */
-public class FileBufferingSocketAppender extends SocketAppender {
+public class FileBufferingSocketAppender extends AppenderBase<ILoggingEvent> {
 
-  private static final String DEFAULT_FILE_ENDING = ".ser";
   private static final String TMP_FILE_ENDING = "-tmp";
-  private static final String DEFAULT_LOG_FOLDER = "/sdcard/logs/";
-  private static final int DEFAULT_BATCH_SIZE = 50;
-  private static final long DEFAULT_SEND_INTERVAL = TimeUnit.MINUTES.toMillis(1);
-  private static final int DEFAULT_FILE_COUNT_QUOTA = 500;
 
-  private String logFolder = DEFAULT_LOG_FOLDER;
-  private String fileEnding = DEFAULT_FILE_ENDING;
-  private int batchSize = DEFAULT_BATCH_SIZE;
-  private long readInterval = DEFAULT_SEND_INTERVAL;
-  private int fileCountQuota = DEFAULT_FILE_COUNT_QUOTA;
-
+  private final FileBufferingConfiguration configuration;
+  private final SocketAppender socketAppender;
+  private final LogFileReader logFileReader;
   private final Timer timer;
   private final ObjectIOProvider objectIoProvider;
 
   public FileBufferingSocketAppender() {
-    this(new Timer("LogEventReader"), new ObjectIOProvider());
+    this(new FileBufferingConfiguration(), new SocketAppender(), new Timer("LogEventReader"), new ObjectIOProvider());
   }
 
-  FileBufferingSocketAppender(final Timer timer, final ObjectIOProvider objectIoProvider) {
+  private FileBufferingSocketAppender(
+          final FileBufferingConfiguration configuration,
+          final SocketAppender socketAppender,
+          final Timer timer,
+          final ObjectIOProvider objectIoProvider) {
+
+    this(configuration, socketAppender, new LogFileReader(configuration, socketAppender, objectIoProvider), timer, objectIoProvider);
+  }
+
+  FileBufferingSocketAppender(
+          final FileBufferingConfiguration configuration,
+          final SocketAppender socketAppender,
+          final LogFileReader logFileReader,
+          final Timer timer,
+          final ObjectIOProvider objectIoProvider) {
+
+    this.configuration = configuration;
+    this.socketAppender = socketAppender;
+    this.logFileReader = logFileReader;
     this.timer = timer;
     this.objectIoProvider = objectIoProvider;
   }
 
   @Override
   public void start() {
+
+    if (configuration.isInvalid()) {
+      configuration.addErrors(this);
+    }
+
     super.start();
+    socketAppender.start();
+
     removeOldTempFiles();
-    final LogFileReader logFileReader = new LogFileReader(this, objectIoProvider);
-    timer.schedule(logFileReader, getReadInterval(), getReadInterval());
+
+    timer.schedule(logFileReader, configuration.getReadInterval(), configuration.getReadInterval());
   }
 
   @Override
@@ -64,7 +83,7 @@ public class FileBufferingSocketAppender extends SocketAppender {
     }
 
     createLogFolderIfAbsent();
-    postProcessEvent(event);
+    socketAppender.postProcessEvent(event);
 
     boolean savedSuccessfully = false;
     final String fileName = generateFilePath();
@@ -86,52 +105,65 @@ public class FileBufferingSocketAppender extends SocketAppender {
   }
 
   @Override
+  public void setName(final String name) {
+    super.setName(name);
+    socketAppender.setName(name + "-BelongingSocketAppender");
+  }
+
+  @Override
   public void stop() {
     super.stop();
+    socketAppender.stop();
     timer.cancel();
   }
 
-  public String getLogFolder() {
-    return logFolder;
+  @Override
+  public void setContext(final Context context) {
+    super.setContext(context);
+    socketAppender.setContext(context);
+  }
+
+  public void setIncludeCallerData(boolean includeCallerData) {
+    socketAppender.setIncludeCallerData(includeCallerData);
+  }
+
+  public void setRemoteHost(final String host) {
+    socketAppender.setRemoteHost(host);
+  }
+
+  public void setPort(final int port) {
+    socketAppender.setPort(port);
+  }
+
+  public void setReconnectionDelay(final int delay) {
+    socketAppender.setReconnectionDelay(delay);
+  }
+
+  public void setLazy(final boolean enable) {
+    socketAppender.setLazy(enable);
   }
 
   public void setLogFolder(final String logFolder) {
-    this.logFolder = format(logFolder);
-  }
-
-  public int getBatchSize() {
-    return batchSize;
+    configuration.setLogFolder(format(logFolder));
   }
 
   public void setBatchSize(final int batchSize) {
-    this.batchSize = batchSize;
-  }
-
-  public long getReadInterval() {
-    return readInterval;
+    configuration.setBatchSize(batchSize);
   }
 
   public void setReadInterval(final long readInterval) {
-    this.readInterval = readInterval;
-  }
-
-  public String getFileEnding() {
-    return fileEnding;
-  }
-
-  public int getFileCountQuota() {
-    return fileCountQuota;
+    configuration.setReadInterval(readInterval);
   }
 
   public void setFileCountQuota(final int fileCountQuota) {
-    this.fileCountQuota = fileCountQuota;
+    configuration.setFileCountQuota(fileCountQuota);
   }
 
   /**
    * Removes old temporary files which might not got removed due to unexpected application shut down.
    */
   private void removeOldTempFiles() {
-    final File logFolder = new File(this.logFolder);
+    final File logFolder = new File(configuration.getLogFolder());
     final File[] oldTempFiles = logFolder.listFiles(new FileFilter() {
       @Override
       public boolean accept(final File file) {
@@ -149,25 +181,10 @@ public class FileBufferingSocketAppender extends SocketAppender {
   }
 
   /**
-   * Makes sure that the given {@code logFolder} always ends with a file separator.
-   *
-   * @param logFolder the log folder to check
-   * @return a log folder path that always ends with a file separator
-   */
-  private String format(final String logFolder) {
-
-    if (logFolder.endsWith(File.separator)) {
-      return logFolder;
-    }
-
-    return logFolder + File.separator;
-  }
-
-  /**
    * Makes sure that the log folder actually exists.
    */
   private void createLogFolderIfAbsent() {
-    final File folder = new File(getLogFolder());
+    final File folder = new File(configuration.getLogFolder());
     if (!folder.exists()) {
       folder.mkdirs();
     }
@@ -181,7 +198,7 @@ public class FileBufferingSocketAppender extends SocketAppender {
    * @return the generated file path
    */
   private String generateFilePath() {
-    return getLogFolder() + UUID.randomUUID() + getFileEnding();
+    return configuration.getLogFolder() + UUID.randomUUID() + configuration.getFileEnding();
   }
 
   /**
@@ -196,5 +213,20 @@ public class FileBufferingSocketAppender extends SocketAppender {
     } catch (final IOException e) {
       addError("Could not rename file from " + tempName + " to " + fileName);
     }
+  }
+
+  /**
+   * Makes sure that the given {@code logFolder} always ends with a file separator.
+   *
+   * @param logFolder the log folder to check
+   * @return a log folder path that always ends with a file separator
+   */
+  private String format(final String logFolder) {
+
+    if (logFolder.endsWith(File.separator)) {
+      return logFolder;
+    }
+
+    return logFolder + File.separator;
   }
 }
