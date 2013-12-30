@@ -13,12 +13,17 @@
  */
 package ch.qos.logback.classic.net.server;
 
+import ch.qos.logback.core.CoreConstants;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
 import java.util.concurrent.Executor;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.net.ServerSocketFactory;
 
 import ch.qos.logback.classic.net.ReceiverBase;
@@ -46,6 +51,10 @@ public class ServerSocketReceiver extends ReceiverBase {
 
   private ServerSocket serverSocket;
   private ServerRunner runner;
+
+  private int corePoolSize = CoreConstants.CORE_POOL_SIZE;
+  private int maxPoolSize = CoreConstants.MAX_POOL_SIZE;
+  protected ExecutorService connectionPoolExecutorService;
   
   /**
    * Starts the server.
@@ -58,7 +67,7 @@ public class ServerSocketReceiver extends ReceiverBase {
       ServerListener<RemoteAppenderClient> listener = 
           createServerListener(serverSocket);
       
-      runner = createServerRunner(listener, getContext().getExecutorService());
+      runner = createServerRunner(listener, getConnectionPoolExecutorService());
       runner.setContext(getContext());
       return true;
     }
@@ -95,7 +104,29 @@ public class ServerSocketReceiver extends ReceiverBase {
     }
     catch (IOException ex) {
       addError("server shutdown error: " + ex, ex);
+    } finally {
+      shutDownExecutorService();
     }
+  }
+
+  private synchronized void shutDownExecutorService() {
+    connectionPoolExecutorService.shutdownNow();
+    connectionPoolExecutorService = null;
+  }
+
+  private ExecutorService getConnectionPoolExecutorService() {
+    if (connectionPoolExecutorService == null) {
+      synchronized (this) {
+        if (connectionPoolExecutorService == null) {
+          connectionPoolExecutorService = new ThreadPoolExecutor(
+                  getCorePoolSize(),
+                  getMaxPoolSize(),
+                  0L, TimeUnit.MILLISECONDS,
+                  new SynchronousQueue<Runnable>());
+        }
+      }
+    }
+    return connectionPoolExecutorService;
   }
 
   /**
@@ -175,4 +206,37 @@ public class ServerSocketReceiver extends ReceiverBase {
     this.address = address;
   }
 
+  /**
+   * Gets the core pool size for the socket client connection pool.
+   * The default value is {@link CoreConstants#CORE_POOL_SIZE}.
+   * @return the core pool size
+   */
+  public int getCorePoolSize() {
+    return corePoolSize;
+  }
+
+  /**
+   * Sets the core number of threads for the socket client connection pool.
+   * @param corePoolSize the core pool size
+   */
+  public void setCorePoolSize(int corePoolSize) {
+    this.corePoolSize = corePoolSize;
+  }
+
+  /**
+   * Gets the maximum pool size for the socket client connection pool.
+   * The default value is {@link CoreConstants#MAX_POOL_SIZE}.
+   * @return the maximum pool size
+   */
+  public int getMaxPoolSize() {
+    return maxPoolSize;
+  }
+
+  /**
+   * Sets the maximum allowed number of threads for the socket client connection pool.
+   * @param maxPoolSize the maximum pool size
+   */
+  public void setMaxPoolSize(int maxPoolSize) {
+    this.maxPoolSize = maxPoolSize;
+  }
 }
